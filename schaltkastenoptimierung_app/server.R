@@ -1,13 +1,7 @@
-#
-# This is the server logic of a Shiny web application. You can run the
-# application by clicking 'Run App' above.
-#
-# Find out more about building applications with Shiny here:
-#
-#    http://shiny.rstudio.com/
-#
+
 
 library(shiny)
+library(DT)
 library(ompr)
 library(ompr.roi)
 library(ROI.plugin.glpk)
@@ -61,14 +55,14 @@ function(input, output, session) {
   )
 
   # render the table containing shiny inputs
-  output$x1 = DT::renderDataTable(
+  output$x2 = DT::renderDataTable(
     res, server = FALSE, escape = FALSE, selection = 'none', options = list(
-      preDrawCallback = JS('function() { Shiny.unbindAll(this.api().table().node()); }'),
-      drawCallback = JS('function() { Shiny.bindAll(this.api().table().node()); } ')
+      preDrawCallback = DT::JS('function() { Shiny.unbindAll(this.api().table().node()); }'),
+      drawCallback = DT::JS('function() { Shiny.bindAll(this.api().table().node()); } ')
     )
   )
   # print the values of inputs
-  output$x2 = renderPrint({
+  output$x1 = renderPrint({
     data.frame(df, use = shinyValue('use_', 5))
   })
 
@@ -128,9 +122,6 @@ function(input, output, session) {
       get_solution(modul[i])
   })
 
-
-
-  # solution <- get_solution(opt, x[i])
 
   output$solution <- renderPrint({data.frame(solution())})
 

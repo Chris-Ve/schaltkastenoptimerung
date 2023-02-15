@@ -11,14 +11,22 @@ MIPModel() |>
 
 
 
-n <- 5
+n <- 7
 modules_mat <- matrix(c(8,0,0,0,0,0,
                         0,6,4,0,0,0,
                         0,4,4,4,0,0,
                         2,2,0,0,12,0,
                         0,0,0,0,0,18), 5, 6, byrow = TRUE)
-c <- c(0,8,12,18)
-costs <- c(200,180,200,250,400)
+modules_mat <- matrix(c(0,8,0,0,0,0,
+                        0,0,16,0,0,0,
+                        12,0,0,0,0,0,
+                        8,0,0,0,0,0,
+                        0,0,0,0,16,0,
+                        0,4,0,0,8,0,
+                        8,0,0,0,0,28),
+                      7,6,byrow = TRUE)
+c <- c(10,10,10,10)
+costs <- c(623,404,638,598,638,837,1676)
 modules <- sample.int(10)
 res <- MIPModel() |>
   add_variable(x[i], i = 1:n, type = "integer") |>
@@ -38,6 +46,7 @@ c
 res3 <- MIPModel() |>
   add_variable(modul[i], i = 1:n, type = "integer") |>
   set_bounds(modul[i], i = 1:n, lb = 0) |>
+  set_bounds(modul[3], lb = 1) |>
   set_objective(sum_over(costs[i] * modul[i], i = 1:n), "min") |>
   add_constraint(sum_over(modules_mat[i,1] * modul[i], i = 1:n) >= c[1]) |>
   add_constraint(sum_over(modules_mat[i,2] * modul[i], i = 1:n) +
@@ -72,6 +81,7 @@ get_solution(res2, x[i])
 res4 <- MIPModel() |>
   add_variable(modul[i], i = 1:n, type = "integer") |>
   set_bounds(modul[i], i = 1:n, lb = 0) |>
+  # set_bounds(modul[5], lb = 3) |>
   set_objective(sum_over(costs[i] * modul[i], i = 1:n), "min") |>
   add_constraint(sum_over(modules_mat[i,1] * modul[i], i = 1:n) >= c[1]) |>
   add_constraint(sum_over(modules_mat[i,2] * modul[i], i = 1:n) +
@@ -121,8 +131,8 @@ res4 <- MIPModel() |>
 get_solution(res4, modul[i])
 
 
-purrr::map(1:6, ~modules_mat[,.x]*c(0,0,1,2,0)) |> lapply(sum)
-sum(costs * c(1,1,0,6,1))
-sum(costs * c(0,0,0,3,1))
-sum(costs * c(0,0,2,0,2))
+purrr::map(1:6, ~modules_mat[,.x]*c(0,1,0,1,0,0,1)) |> lapply(sum)
+sum(costs * c(0,1,0,1,0,0,1))
+sum(costs * c(0,1,0,1,1))
+sum(costs * c(0,3,0,1,0))
 
