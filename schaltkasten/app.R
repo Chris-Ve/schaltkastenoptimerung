@@ -26,11 +26,13 @@ ui <- fluidPage(
                 numericInput("do", "DO", value = 0, min = 0)
               ),
       hr(),
-      actionButton("run", "Berechnen"),
+      fluidRow(column(6, actionButton("run", "Berechnen"), align="center"),
+                  column(5, checkboxInput("filter", "Ergebnis filtern"),
+                         align = "center")),
       hr(),
-      verbatimTextOutput("tbl_raw"),
-      verbatimTextOutput("vec"),
-      verbatimTextOutput("solution")
+      tableOutput("tbl_raw"),
+      tableOutput("solution"),
+      verbatimTextOutput("totalcost")
 
     ),
     mainPanel(
@@ -54,7 +56,9 @@ server <- function(input, output, session) {
           value = input[[paste0(id, i)]]
           if (is.null(value)) NA else value
         }))
-      }
+  }
+
+
   n <- 5
   names <- c(LETTERS[1:5])
   # min_use <- rep(0, 5)
@@ -86,30 +90,42 @@ server <- function(input, output, session) {
                                         drawCallback = JS('function() { Shiny.bindAll(this.api().table().node()); } ')))
 
 
-
-  output$tbl_raw = renderPrint({
-    data.frame(df, min_use = shinyValue("min_use_", 5), use = shinyValue("use_", 5 ))
-  })
-
-  output$vec <- renderPrint({shinyValue("use_", 5)})
+  output$tbl_raw = renderTable({data.frame(df, min_use = shinyValue("min_use_", 5)) |>
+      subset(shinyValue("use_", 5))
+  }, rownames = FALSE, striped = TRUE, digits = 0)
 
 
 
   solution <- eventReactive(input$run, {
-    MIPModel() |>
+
+    mods <- modules[shinyValue("use_", 5), , drop=FALSE]
+
+    n <- sum(shinyValue("use_", 5))
+
+    model <- MIPModel() |>
     add_variable(x[i], i = 1:n, type = "integer") |>
     set_bounds(x[i], i = 1:n, lb = 0) |>
     set_objective(sum_over(costs[i] * x[i], i = 1:n), "min") |>
-    add_constraint(sum_over(modules[i,1] * x[i], i = 1:n) >= input$ai) |>
-    add_constraint(sum_over(modules[i,2] * x[i], i = 1:n) >= input$ao) |>
-    add_constraint(sum_over(modules[i,3] * x[i], i = 1:n) >= input$di) |>
-    add_constraint(sum_over(modules[i,4] * x[i], i = 1:n) >= input$do) |>
+    add_constraint(sum_over(mods[i,1] * x[i], i = 1:n) >= input$ai) |>
+    add_constraint(sum_over(mods[i,2] * x[i], i = 1:n) >= input$ao) |>
+    add_constraint(sum_over(mods[i,3] * x[i], i = 1:n) >= input$di) |>
+    add_constraint(sum_over(mods[i,4] * x[i], i = 1:n) >= input$do) |>
     solve_model(with_ROI(solver = "glpk")) |>
     get_solution(x[i])
+
+    data.frame(Modul = names[shinyValue("use_", 5)],
+               Preis = costs[shinyValue("use_", 5)],
+               Anzahl = model$value)
+
   })
 
-  output$solution <- renderPrint({data.frame(solution())})
+  output$solution <- renderTable({subset(solution(), Anzahl > input$filter-1)},
+                                 rownames = FALSE, striped = TRUE, digits = 0)
 
+  # output$solution <- renderPrint({data.frame(Modul = names[shinyValue("use_", 5)],
+  #                                            Anzahl = solution()$value)})
+
+  output$totalcost <- renderPrint({cat("Kosten: ", sum(solution()$Preis * solution()$Anzahl))})
 }
 
 
