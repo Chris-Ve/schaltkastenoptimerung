@@ -11,7 +11,7 @@ MIPModel() |>
 
 
 
-n <- 1
+n <- 7
 modules_mat <- matrix(c(8,0,0,0,0,0,
                         0,6,4,0,0,0,
                         0,4,4,4,0,0,
@@ -77,11 +77,14 @@ res2 <- MIPModel() |>
 get_solution(res2, x[i])
 
 
+for (i in 1:n) {
+  set_bounds(res4, modul[i], lb = min[i])
+}
+
 
 res4 <- MIPModel() |>
   add_variable(modul[i], i = 1:n, type = "integer") |>
   set_bounds(modul[i], i = 1:n, lb = 0) |>
-  # set_bounds(modul[5], lb = 3) |>
   set_objective(sum_over(costs[i] * modul[i], i = 1:n), "min") |>
   add_constraint(sum_over(modules_mat[i,1] * modul[i], i = 1:n) >= c[1]) |>
   add_constraint(sum_over(modules_mat[i,2] * modul[i], i = 1:n) +

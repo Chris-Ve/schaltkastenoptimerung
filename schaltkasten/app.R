@@ -43,6 +43,9 @@ ui <- fluidPage(
 
 server <- function(input, output, session) {
 
+  html_caption_auswahl <- as.character(shiny::tags$b(style = "color: black", "Verwendbare Module:"))
+  html_caption_ergebnis <- as.character(shiny::tags$b(style = "color: green", "Berechnete Module:"))
+
   shinyInput <- function(FUN, len, id, ...) {
         inputs = character(len)
         for (i in seq_len(len)) {
@@ -73,7 +76,7 @@ server <- function(input, output, session) {
 
   df <- data.frame(names, modules, costs)
   table <- data.frame(df,
-                      min_use = shinyInput(numericInput, 5, 'min_use_', value=0, width = "70px"),
+                      min_use = shinyInput(numericInput, 5, 'min_use_', value=0, min=0, width = "70px"),
                       use = shinyInput(checkboxInput, 5, 'use_', value=TRUE, width = "50px"),
                       stringsAsFactors = FALSE)
 
@@ -92,11 +95,15 @@ server <- function(input, output, session) {
 
   output$tbl_raw = renderTable({data.frame(df, min_use = shinyValue("min_use_", 5)) |>
       subset(shinyValue("use_", 5))
-  }, rownames = FALSE, striped = TRUE, digits = 0)
+  }, rownames = FALSE, striped = TRUE, digits = 0,
+  caption = html_caption_auswahl,
+  caption.placement = getOption("xtable.caption.placement", "top"))
 
 
 
   solution <- eventReactive(input$run, {
+
+    costs_ <- costs[shinyValue("use_", 5)]
 
     mods <- modules[shinyValue("use_", 5), , drop=FALSE]
 
@@ -105,13 +112,17 @@ server <- function(input, output, session) {
     model <- MIPModel() |>
     add_variable(x[i], i = 1:n, type = "integer") |>
     set_bounds(x[i], i = 1:n, lb = 0) |>
-    set_objective(sum_over(costs[i] * x[i], i = 1:n), "min") |>
+    set_objective(sum_over(costs_[i] * x[i], i = 1:n), "min") |>
     add_constraint(sum_over(mods[i,1] * x[i], i = 1:n) >= input$ai) |>
     add_constraint(sum_over(mods[i,2] * x[i], i = 1:n) >= input$ao) |>
     add_constraint(sum_over(mods[i,3] * x[i], i = 1:n) >= input$di) |>
-    add_constraint(sum_over(mods[i,4] * x[i], i = 1:n) >= input$do) |>
-    solve_model(with_ROI(solver = "glpk")) |>
-    get_solution(x[i])
+    add_constraint(sum_over(mods[i,4] * x[i], i = 1:n) >= input$do)
+
+    model$variable_bounds_lower <- shinyValue("min_use_", 5)[shinyValue("use_", 5)]
+
+    model <- model |>
+      solve_model(with_ROI(solver = "glpk")) |>
+      get_solution(x[i])
 
     data.frame(Modul = names[shinyValue("use_", 5)],
                Preis = costs[shinyValue("use_", 5)],
@@ -120,7 +131,9 @@ server <- function(input, output, session) {
   })
 
   output$solution <- renderTable({subset(solution(), Anzahl > input$filter-1)},
-                                 rownames = FALSE, striped = TRUE, digits = 0)
+                                 rownames = FALSE, striped = TRUE, digits = 0,
+                                 caption = html_caption_ergebnis,
+                                 caption.placement = getOption("xtable.caption.placement", "top"))
 
   # output$solution <- renderPrint({data.frame(Modul = names[shinyValue("use_", 5)],
   #                                            Anzahl = solution()$value)})
