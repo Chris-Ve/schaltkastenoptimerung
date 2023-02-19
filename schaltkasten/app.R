@@ -62,22 +62,24 @@ server <- function(input, output, session) {
   }
 
 
-  n <- 5
-  names <- c(LETTERS[1:5])
+  N <- 7
+  names <- c(LETTERS[1:N])
   # min_use <- rep(0, 5)
-  modules <- matrix(c(8, 0, 0, 0, 0, 0,
-                      0, 6, 4, 0, 0, 0,
-                      0, 4, 4, 4, 0, 0,
-                      2, 2, 0, 0, 12, 0,
-                      0, 0, 0, 0, 0, 18),
-                    nrow = 5, ncol = 6, byrow = TRUE)
-  costs <- c(200,180,200,250,320)
+  modules <- matrix(c(0,8,0,0,0,0,
+                      0,0,16,0,0,0,
+                      12,0,0,0,0,0,
+                      8,0,0,0,0,0,
+                      0,0,0,0,16,0,
+                      0,4,0,0,8,0,
+                      8,0,0,0,0,28),
+                    7,6,byrow = TRUE)
+  costs <- c(623,404,638,598,638,837,1676)
 
 
-  df <- data.frame(names, modules, costs)
+  df <- data.frame(Bezeichnung = names, modules, Preis = costs)
   table <- data.frame(df,
-                      min_use = shinyInput(numericInput, 5, 'min_use_', value=0, min=0, width = "70px"),
-                      use = shinyInput(checkboxInput, 5, 'use_', value=TRUE, width = "50px"),
+                      Mindestanzahl = shinyInput(numericInput, N, 'min_use_', value=0, min=0, width = "70px"),
+                      Verwenden = shinyInput(checkboxInput, N, 'use_', value=TRUE, width = "50px"),
                       stringsAsFactors = FALSE)
 
 
@@ -93,8 +95,8 @@ server <- function(input, output, session) {
                                         drawCallback = JS('function() { Shiny.bindAll(this.api().table().node()); } ')))
 
 
-  output$tbl_raw = renderTable({data.frame(df, min_use = shinyValue("min_use_", 5)) |>
-      subset(shinyValue("use_", 5))
+  output$tbl_raw = renderTable({data.frame(df, Mindestanzahl = shinyValue("min_use_", N)) |>
+      subset(shinyValue("use_", N))
   }, rownames = FALSE, striped = TRUE, digits = 0,
   caption = html_caption_auswahl,
   caption.placement = getOption("xtable.caption.placement", "top"))
@@ -103,29 +105,69 @@ server <- function(input, output, session) {
 
   solution <- eventReactive(input$run, {
 
-    costs_ <- costs[shinyValue("use_", 5)]
+    costs_ <- costs[shinyValue("use_", N)]
 
-    mods <- modules[shinyValue("use_", 5), , drop=FALSE]
+    mods <- modules[shinyValue("use_", N), , drop=FALSE]
 
-    n <- sum(shinyValue("use_", 5))
+    n <- sum(shinyValue("use_", N))
 
     model <- MIPModel() |>
-    add_variable(x[i], i = 1:n, type = "integer") |>
-    set_bounds(x[i], i = 1:n, lb = 0) |>
-    set_objective(sum_over(costs_[i] * x[i], i = 1:n), "min") |>
-    add_constraint(sum_over(mods[i,1] * x[i], i = 1:n) >= input$ai) |>
-    add_constraint(sum_over(mods[i,2] * x[i], i = 1:n) >= input$ao) |>
-    add_constraint(sum_over(mods[i,3] * x[i], i = 1:n) >= input$di) |>
-    add_constraint(sum_over(mods[i,4] * x[i], i = 1:n) >= input$do)
+      add_variable(modul[i], i = 1:n, type = "integer") |>
+      set_bounds(modul[i], i = 1:n, lb = 0) |>
+      set_objective(sum_over(costs_[i] * modul[i], i = 1:n), "min") |>
+      add_constraint(sum_over(mods[i,1] * modul[i], i = 1:n) >= input$ai) |>
+      add_constraint(sum_over(mods[i,2] * modul[i], i = 1:n) +
+                       sum_over(mods[i,6] * modul[i], i = 1:n) >= input$ao) |>
+      add_constraint(sum_over(mods[i,5] * modul[i], i = 1:n) +
+                       sum_over(mods[i, 6] * modul[i], i = 1:n) >=
+                       input$ao -
+                       sum_over(mods[i, 2] * modul[i], i = 1:n) +
+                       input$di -
+                       sum_over(mods[i, 3] * modul[i], i = 1:n) +
+                       input$do -
+                       sum_over(mods[i,4] * modul[i], i = 1:n)) |>
+      add_constraint(sum_over(mods[i,5] * modul[i], i = 1:n) +
+                       sum_over(mods[i, 6] * modul[i], i = 1:n) >=
+                       input$ao -
+                       sum_over(mods[i, 2] * modul[i], i = 1:n) +
+                       input$di -
+                       sum_over(mods[i, 3] * modul[i], i = 1:n)) |>
+      add_constraint(sum_over(mods[i,5] * modul[i], i = 1:n) +
+                       sum_over(mods[i, 6] * modul[i], i = 1:n) >=
+                       input$ao -
+                       sum_over(mods[i, 2] * modul[i], i = 1:n) +
+                       input$do -
+                       sum_over(mods[i,4] * modul[i], i = 1:n)) |>
+      add_constraint(sum_over(mods[i,5] * modul[i], i = 1:n) +
+                       sum_over(mods[i, 6] * modul[i], i = 1:n) >=
+                       input$ao -
+                       sum_over(mods[i, 2] * modul[i], i = 1:n)) |>
+      add_constraint(sum_over(mods[i,5] * modul[i], i = 1:n) +
+                       sum_over(mods[i, 6] * modul[i], i = 1:n) >=
+                       input$di -
+                       sum_over(mods[i, 3] * modul[i], i = 1:n) +
+                       input$do -
+                       sum_over(mods[i,4] * modul[i], i = 1:n)) |>
+      add_constraint(sum_over(mods[i,5] * modul[i], i = 1:n) +
+                       sum_over(mods[i, 6] * modul[i], i = 1:n) >=
+                       input$di -
+                       sum_over(mods[i, 3] * modul[i], i = 1:n)) |>
+      add_constraint(sum_over(mods[i,5] * modul[i], i = 1:n) +
+                       sum_over(mods[i, 6] * modul[i], i = 1:n) >=
+                       input$do -
+                       sum_over(mods[i,4] * modul[i], i = 1:n)) |>
+      add_constraint(sum_over(mods[i,5] * modul[i], i = 1:n) +
+                       sum_over(mods[i, 6] * modul[i], i = 1:n) >=
+                       0)
 
-    model$variable_bounds_lower <- shinyValue("min_use_", 5)[shinyValue("use_", 5)]
+    model$variable_bounds_lower <- shinyValue("min_use_", N)[shinyValue("use_", N)]
 
     model <- model |>
       solve_model(with_ROI(solver = "glpk")) |>
-      get_solution(x[i])
+      get_solution(modul[i])
 
-    data.frame(Modul = names[shinyValue("use_", 5)],
-               Preis = costs[shinyValue("use_", 5)],
+    data.frame(Modul = names[shinyValue("use_", N)],
+               Preis = costs[shinyValue("use_", N)],
                Anzahl = model$value)
 
   })
